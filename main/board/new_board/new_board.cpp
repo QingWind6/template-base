@@ -2,12 +2,12 @@
 
 #include "adc_battery.h"
 #include "board.h"
-#include "board_devices.h"
 #include "gpio_button.h"
 #include "gpio_buzzer.h"
 #include "gpio_display.h"
 #include "gpio_led.h"
 
+#include "driver/gpio.h"
 #include "esp_err.h"
 #include "esp_log.h"
 
@@ -38,55 +38,94 @@ public:
     }
 
     Led* GetLed() override {
-        return GetReadyDevice(_led, _led_ready);
+        if (!_led_ready || !_led) {
+            return nullptr;
+        }
+        return _led.get();
     }
 
     Buzzer* GetBuzzer() override {
-        return GetReadyDevice(_buzzer, _buzzer_ready);
+        if (!_buzzer_ready || !_buzzer) {
+            return nullptr;
+        }
+        return _buzzer.get();
     }
 
     Battery* GetBattery() override {
-        return GetReadyDevice(_battery, _battery_ready);
+        if (!_battery_ready || !_battery) {
+            return nullptr;
+        }
+        return _battery.get();
     }
 
     Display* GetDisplay() override {
-        return GetReadyDevice(_display, _display_ready);
+        if (!_display_ready || !_display) {
+            return nullptr;
+        }
+        return _display.get();
     }
 
     EnvironmentSensor* GetEnvironmentSensor() override {
-        return GetReadyDevice(_environment_sensor, _environment_sensor_ready);
+        if (!_environment_sensor_ready || !_environment_sensor) {
+            return nullptr;
+        }
+        return _environment_sensor.get();
     }
 
     Imu* GetImu() override {
-        return GetReadyDevice(_imu, _imu_ready);
+        if (!_imu_ready || !_imu) {
+            return nullptr;
+        }
+        return _imu.get();
     }
 
     Rtc* GetRtc() override {
-        return GetReadyDevice(_rtc, _rtc_ready);
+        if (!_rtc_ready || !_rtc) {
+            return nullptr;
+        }
+        return _rtc.get();
     }
 
     Storage* GetStorage() override {
-        return GetReadyDevice(_storage, _storage_ready);
+        if (!_storage_ready || !_storage) {
+            return nullptr;
+        }
+        return _storage.get();
     }
 
     Microphone* GetMicrophone() override {
-        return GetReadyDevice(_microphone, _microphone_ready);
+        if (!_microphone_ready || !_microphone) {
+            return nullptr;
+        }
+        return _microphone.get();
     }
 
     Touch* GetTouch() override {
-        return GetReadyDevice(_touch, _touch_ready);
+        if (!_touch_ready || !_touch) {
+            return nullptr;
+        }
+        return _touch.get();
     }
 
     Button* GetButtonUp() override {
-        return GetReadyDevice(_button_up, _button_up_ready);
+        if (!_button_up_ready || !_button_up) {
+            return nullptr;
+        }
+        return _button_up.get();
     }
 
     Button* GetButtonDown() override {
-        return GetReadyDevice(_button_down, _button_down_ready);
+        if (!_button_down_ready || !_button_down) {
+            return nullptr;
+        }
+        return _button_down.get();
     }
 
     Button* GetButtonOk() override {
-        return GetReadyDevice(_button_ok, _button_ok_ready);
+        if (!_button_ok_ready || !_button_ok) {
+            return nullptr;
+        }
+        return _button_ok.get();
     }
 
     Button* GetButton() override {
@@ -95,50 +134,94 @@ public:
 
 private:
     void InitializeButtons() {
-        if (!_button_up) {
-            _button_up = MakeDeviceIf<GpioButton>(BoardHasGpio(HAL_BTN_UP), HAL_BTN_UP);
+        if (HAL_BTN_UP != GPIO_NUM_NC) {
+            _button_up = std::make_unique<GpioButton>(HAL_BTN_UP);
         }
-        if (!_button_down) {
-            _button_down = MakeDeviceIf<GpioButton>(BoardHasGpio(HAL_BTN_DOWN), HAL_BTN_DOWN);
+        if (HAL_BTN_DOWN != GPIO_NUM_NC) {
+            _button_down = std::make_unique<GpioButton>(HAL_BTN_DOWN);
         }
-        if (!_button_ok) {
-            _button_ok = MakeDeviceIf<GpioButton>(BoardHasGpio(HAL_BTN_OK), HAL_BTN_OK);
+        if (HAL_BTN_OK != GPIO_NUM_NC) {
+            _button_ok = std::make_unique<GpioButton>(HAL_BTN_OK);
         }
 
-        _button_up_ready = InitializeOwnedDevice(_button_up, kTag, "button up");
-        _button_down_ready = InitializeOwnedDevice(_button_down, kTag, "button down");
-        _button_ok_ready = InitializeOwnedDevice(_button_ok, kTag, "button ok");
+        _button_up_ready = InitializeButton(_button_up, "button up");
+        _button_down_ready = InitializeButton(_button_down, "button down");
+        _button_ok_ready = InitializeButton(_button_ok, "button ok");
     }
 
     void InitializeLed() {
-        if (!_led) {
-            _led = MakeDeviceIf<GpioLed>(BoardHasGpio(HAL_LED_STATUS), HAL_LED_STATUS);
+        if (HAL_LED_STATUS == GPIO_NUM_NC) {
+            ESP_LOGI(kTag, "status led not configured");
+            return;
         }
-        _led_ready = InitializeOwnedDevice(_led, kTag, "status led");
+
+        _led = std::make_unique<GpioLed>(HAL_LED_STATUS);
+        const esp_err_t err = _led->Initialize();
+        if (err != ESP_OK) {
+            ESP_LOGW(kTag, "status led init failed: %s", esp_err_to_name(err));
+            _led.reset();
+            return;
+        }
+
+        _led_ready = true;
+        ESP_LOGI(kTag, "status led ready");
     }
 
     void InitializeBuzzer() {
-        if (!_buzzer) {
-            _buzzer = MakeDeviceIf<GpioBuzzer>(BoardHasGpio(HAL_BUZZER), HAL_BUZZER);
+        if (HAL_BUZZER == GPIO_NUM_NC) {
+            ESP_LOGI(kTag, "buzzer not configured");
+            return;
         }
-        _buzzer_ready = InitializeOwnedDevice(_buzzer, kTag, "buzzer");
+
+        _buzzer = std::make_unique<GpioBuzzer>(HAL_BUZZER);
+        const esp_err_t err = _buzzer->Initialize();
+        if (err != ESP_OK) {
+            ESP_LOGW(kTag, "buzzer init failed: %s", esp_err_to_name(err));
+            _buzzer.reset();
+            return;
+        }
+
+        _buzzer_ready = true;
+        ESP_LOGI(kTag, "buzzer ready");
     }
 
     void InitializeBattery() {
-        if (!_battery) {
-            _battery = std::make_unique<AdcBattery>(HAL_BATTERY_ADC_UNIT, HAL_BATTERY_ADC_CHANNEL, HAL_BATTERY_CHARGE_DETECT);
+        _battery = std::make_unique<AdcBattery>(HAL_BATTERY_ADC_UNIT, HAL_BATTERY_ADC_CHANNEL, HAL_BATTERY_CHARGE_DETECT);
+        const esp_err_t err = _battery->Initialize();
+        if (err != ESP_OK) {
+            ESP_LOGW(kTag, "battery init failed: %s", esp_err_to_name(err));
+            _battery.reset();
+            return;
         }
-        _battery_ready = InitializeOwnedDevice(_battery, kTag, "battery");
+
+        _battery_ready = true;
+        ESP_LOGI(kTag, "battery ready");
     }
 
     void InitializeDisplay() {
-        const bool has_display = BoardHasGpio(HAL_EPD_SCK) && BoardHasGpio(HAL_EPD_MOSI) &&
-                                 BoardHasGpio(HAL_EPD_CS) && BoardHasGpio(HAL_EPD_DC) &&
-                                 BoardHasGpio(HAL_EPD_RST) && BoardHasGpio(HAL_EPD_BUSY);
-        if (!_display) {
-            _display = MakeDeviceIf<GpioDisplay>(has_display, HAL_EPD_SCK, HAL_EPD_MOSI, HAL_EPD_CS, HAL_EPD_DC, HAL_EPD_RST, HAL_EPD_BUSY);
+        const bool has_display = HAL_EPD_SCK != GPIO_NUM_NC && HAL_EPD_MOSI != GPIO_NUM_NC &&
+                                 HAL_EPD_CS != GPIO_NUM_NC && HAL_EPD_DC != GPIO_NUM_NC &&
+                                 HAL_EPD_RST != GPIO_NUM_NC && HAL_EPD_BUSY != GPIO_NUM_NC;
+        if (!has_display) {
+            ESP_LOGI(kTag, "display not configured");
+            return;
         }
-        _display_ready = InitializeOwnedDevice(_display, kTag, "display");
+
+        _display = std::make_unique<GpioDisplay>(HAL_EPD_SCK,
+                                                 HAL_EPD_MOSI,
+                                                 HAL_EPD_CS,
+                                                 HAL_EPD_DC,
+                                                 HAL_EPD_RST,
+                                                 HAL_EPD_BUSY);
+        const esp_err_t err = _display->Initialize();
+        if (err != ESP_OK) {
+            ESP_LOGW(kTag, "display init failed: %s", esp_err_to_name(err));
+            _display.reset();
+            return;
+        }
+
+        _display_ready = true;
+        ESP_LOGI(kTag, "display ready");
     }
 
     void InitializeSensors() {
@@ -149,6 +232,23 @@ private:
         _storage_ready = _storage != nullptr;
         _microphone_ready = _microphone != nullptr;
         _touch_ready = _touch != nullptr;
+    }
+
+    bool InitializeButton(std::unique_ptr<Button>& button, const char* name) {
+        if (!button) {
+            ESP_LOGI(kTag, "%s not configured", name);
+            return false;
+        }
+
+        const esp_err_t err = button->Initialize();
+        if (err != ESP_OK) {
+            ESP_LOGW(kTag, "%s init failed: %s", name, esp_err_to_name(err));
+            button.reset();
+            return false;
+        }
+
+        ESP_LOGI(kTag, "%s ready", name);
+        return true;
     }
 
     std::unique_ptr<Button> _button_up;
