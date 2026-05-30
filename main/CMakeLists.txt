@@ -1,11 +1,17 @@
 set(BOARD_COMMON_SRCS
     "board/common/board.cc"
-    "board/common/devices/gpio_led.cc"
-    "board/common/devices/gpio_buzzer.cc"
-    "board/common/devices/adc_battery.cc"
-    "board/common/devices/gpio_display.cc"
-    "board/common/devices/gpio_button.cc"
+    "board/common/button.cc"
+    "board/common/display.cc"
+    "board/common/epaper_display.cc"
+    "board/common/i2c_device.cc"
+    "board/common/led.cc"
 )
+
+if(CONFIG_ARDUINO)
+    list(APPEND BOARD_COMMON_SRCS
+        "board/common/buzzer.cc"
+    )
+endif()
 
 set(BOARD_SRCS)
 set(BOARD_INCLUDE_DIRS)
@@ -34,10 +40,9 @@ idf_component_register(
         "app"
         "hal"
         "board/common"
-        "board/common/interfaces"
-        "board/common/devices"
         ${BOARD_INCLUDE_DIRS}
     REQUIRES
+        button
         esp_adc
         esp_driver_gpio
         esp_driver_i2c

@@ -4,8 +4,9 @@ Place board-specific device implementations here.
 
 Examples:
 
-- `Sht40EnvironmentSensor : public EnvironmentSensor`
-- `Qmi8658Imu : public Imu`
-- `Pcf8563Rtc : public Rtc`
+- `Ssd1306Display : public Display`
+- `Qmi8658Imu : public ImuDevice`
+- `Gt911Touch : public TouchDevice`
+- `CustomEpaperDisplay : public EpaperDisplay`
 
-Keep application code using the abstract interfaces from `board/common/interfaces`.
+Keep application code using the common board-facing classes from `board/common`.

@@ -28,6 +28,11 @@ const char* Board::GetUuid() const {
     return uuid_.c_str();
 }
 
+const Ui::Config& Board::GetUiConfig() const {
+    static const Ui::Config config = {};
+    return config;
+}
+
 void Board::PowerOn() {}
 
 void Board::PowerOff() {}

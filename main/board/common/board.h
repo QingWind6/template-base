@@ -1,16 +1,16 @@
 #pragma once
 
-#include "battery.h"
+#include "battery_gauge.h"
 #include "button.h"
 #include "buzzer.h"
 #include "display.h"
-#include "environment_sensor.h"
-#include "imu.h"
+#include "epaper_display.h"
+#include "imu_device.h"
 #include "led.h"
 #include "microphone.h"
-#include "rtc.h"
-#include "storage.h"
+#include "sd_card.h"
 #include "touch.h"
+#include "ui_orientation.h"
 
 #include <string>
 
@@ -44,27 +44,31 @@ public:
         return nullptr;
     }
 
-    virtual Battery* GetBattery() {
+    virtual BatteryGauge* GetBatteryGauge() {
+        return nullptr;
+    }
+
+    virtual BatteryGauge* GetBattery() {
+        return GetBatteryGauge();
+    }
+
+    virtual EpaperDisplay* GetEpaperDisplay() {
         return nullptr;
     }
 
     virtual Display* GetDisplay() {
+        return GetEpaperDisplay();
+    }
+
+    virtual SdCard* GetSdCard() {
         return nullptr;
     }
 
-    virtual Rtc* GetRtc() {
-        return nullptr;
+    virtual SdCard* GetStorage() {
+        return GetSdCard();
     }
 
-    virtual Storage* GetStorage() {
-        return nullptr;
-    }
-
-    virtual EnvironmentSensor* GetEnvironmentSensor() {
-        return nullptr;
-    }
-
-    virtual Imu* GetImu() {
+    virtual ImuDevice* GetImu() {
         return nullptr;
     }
 
@@ -72,9 +76,11 @@ public:
         return nullptr;
     }
 
-    virtual Touch* GetTouch() {
+    virtual TouchDevice* GetTouch() {
         return nullptr;
     }
+
+    virtual const Ui::Config& GetUiConfig() const;
 
     virtual Button* GetButton() {
         return GetButtonOk();
