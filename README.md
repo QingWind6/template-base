@@ -12,14 +12,6 @@ A project template for ESP32 applications.
 - `main/board/new_board/`: concrete `new_board` implementation.
 - `main/board/new_board/devices/`: board-specific chip implementations.
 
-## Flash Layout
-
-The partition table targets 8 MB flash:
-
-- `ota_0`: 3 MB
-- `ota_1`: 3 MB
-- `littlefs`: remaining `0x1F0000`
-
 Build with ESP-IDF:
 
 ```sh
