@@ -10,15 +10,7 @@ set(BOARD_COMMON_SRCS
 set(BOARD_SRCS)
 set(BOARD_INCLUDE_DIRS)
 
-if(CONFIG_BOARD_JUGGLER)
-    list(APPEND BOARD_SRCS
-        "board/juggler/juggler.cpp"
-    )
-    list(APPEND BOARD_INCLUDE_DIRS
-        "board/juggler"
-        "board/juggler/devices"
-    )
-elseif(NOT DEFINED CONFIG_BOARD_NEW_BOARD OR CONFIG_BOARD_NEW_BOARD)
+if(NOT DEFINED CONFIG_BOARD_NEW_BOARD OR CONFIG_BOARD_NEW_BOARD)
     list(APPEND BOARD_SRCS
         "board/new_board/new_board.cpp"
     )

@@ -19,13 +19,8 @@ constexpr const char* kTag = "NewBoard";
 
 class NewBoard : public Board {
 public:
-    const char* GetName() const override {
-        return HAL_BOARD_NAME;
-    }
-
-    void Initialize() override {
-        Board::Initialize();
-
+    NewBoard() {
+        ESP_LOGI(kTag, "Initializing board: %s uuid=%s", GetBoardType(), GetUuid());
         InitializeButtons();
         InitializeLed();
         InitializeBuzzer();
@@ -36,6 +31,10 @@ public:
         if (_led_ready) {
             ESP_ERROR_CHECK(_led->Set(true));
         }
+    }
+
+    const char* GetName() const override {
+        return HAL_BOARD_NAME;
     }
 
     Led* GetLed() override {

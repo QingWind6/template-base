@@ -1,12 +1,11 @@
 #include "app.h"
 
-#include "board.h"
+#include "hal.h"
 
 namespace template_base {
 
 void App::Run() {
-    auto& board = Board::GetInstance();
-    board.Initialize();
+    HAL::GetHAL().init();
 }
 
 }  // namespace template_base

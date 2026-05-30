@@ -31,7 +31,6 @@ public:
     virtual const char* GetScreenResolution() const;
     const char* GetUuid() const;
 
-    virtual void Initialize();
     virtual void PowerOn();
     virtual void PowerOff();
     virtual void Reboot();

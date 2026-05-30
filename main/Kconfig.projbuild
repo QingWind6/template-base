@@ -6,14 +6,10 @@ choice BOARD_TYPE
 
     config BOARD_NEW_BOARD
         bool "new_board"
-
-    config BOARD_JUGGLER
-        bool "juggler"
 endchoice
 
 config BOARD_NAME
     string
     default "new_board" if BOARD_NEW_BOARD
-    default "juggler" if BOARD_JUGGLER
 
 endmenu
