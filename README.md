@@ -1,6 +1,6 @@
 # template-base
 
-ESP-IDF project skeleton for ESP32-S3 boards.
+A project template for ESP32 applications.
 
 ## Layout
 
