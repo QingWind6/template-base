@@ -28,10 +28,6 @@ const char* Board::GetUuid() const {
     return uuid_.c_str();
 }
 
-void Board::Initialize() {
-    ESP_LOGI(kTag, "Initializing board: %s uuid=%s", GetBoardType(), GetUuid());
-}
-
 void Board::PowerOn() {}
 
 void Board::PowerOff() {}

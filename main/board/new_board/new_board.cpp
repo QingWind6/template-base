@@ -2,12 +2,12 @@
 
 #include "adc_battery.h"
 #include "board.h"
-#include "board_devices.h"
 #include "gpio_button.h"
-#include "gpio_buzzer.h"
 #include "gpio_display.h"
 #include "gpio_led.h"
 
+#include "driver/gpio.h"
+#include "driver/i2c_master.h"
 #include "esp_err.h"
 #include "esp_log.h"
 
@@ -19,75 +19,55 @@ constexpr const char* kTag = "NewBoard";
 
 class NewBoard : public Board {
 public:
-    const char* GetName() const override {
-        return HAL_BOARD_NAME;
-    }
-
-    void Initialize() override {
-        Board::Initialize();
-
+    NewBoard() {
+        ESP_LOGI(kTag, "Initializing board: %s uuid=%s", GetBoardType(), GetUuid());
+        InitializeI2c();
         InitializeButtons();
         InitializeLed();
-        InitializeBuzzer();
         InitializeBattery();
         InitializeDisplay();
-        InitializeSensors();
         ESP_LOGI(kTag, "Board is ready");
         if (_led_ready) {
             ESP_ERROR_CHECK(_led->Set(true));
         }
     }
 
-    Led* GetLed() override {
-        return GetReadyDevice(_led, _led_ready);
+    ~NewBoard() override {
+        if (_i2c_bus) {
+            i2c_del_master_bus(_i2c_bus);
+        }
     }
 
-    Buzzer* GetBuzzer() override {
-        return GetReadyDevice(_buzzer, _buzzer_ready);
+    const char* GetName() const override {
+        return HAL_BOARD_NAME;
+    }
+
+    Led* GetLed() override {
+        if (!_led_ready || !_led) {
+            return nullptr;
+        }
+        return _led.get();
     }
 
     Battery* GetBattery() override {
-        return GetReadyDevice(_battery, _battery_ready);
+        if (!_battery_ready || !_battery) {
+            return nullptr;
+        }
+        return _battery.get();
     }
 
     Display* GetDisplay() override {
-        return GetReadyDevice(_display, _display_ready);
-    }
-
-    EnvironmentSensor* GetEnvironmentSensor() override {
-        return GetReadyDevice(_environment_sensor, _environment_sensor_ready);
-    }
-
-    Imu* GetImu() override {
-        return GetReadyDevice(_imu, _imu_ready);
-    }
-
-    Rtc* GetRtc() override {
-        return GetReadyDevice(_rtc, _rtc_ready);
-    }
-
-    Storage* GetStorage() override {
-        return GetReadyDevice(_storage, _storage_ready);
-    }
-
-    Microphone* GetMicrophone() override {
-        return GetReadyDevice(_microphone, _microphone_ready);
-    }
-
-    Touch* GetTouch() override {
-        return GetReadyDevice(_touch, _touch_ready);
-    }
-
-    Button* GetButtonUp() override {
-        return GetReadyDevice(_button_up, _button_up_ready);
-    }
-
-    Button* GetButtonDown() override {
-        return GetReadyDevice(_button_down, _button_down_ready);
+        if (!_display_ready || !_display) {
+            return nullptr;
+        }
+        return _display.get();
     }
 
     Button* GetButtonOk() override {
-        return GetReadyDevice(_button_ok, _button_ok_ready);
+        if (!_button_ok_ready || !_button_ok) {
+            return nullptr;
+        }
+        return _button_ok.get();
     }
 
     Button* GetButton() override {
@@ -95,90 +75,55 @@ public:
     }
 
 private:
-    void InitializeButtons() {
-        if (!_button_up) {
-            _button_up = MakeDeviceIf<GpioButton>(BoardHasGpio(HAL_BTN_UP), HAL_BTN_UP);
-        }
-        if (!_button_down) {
-            _button_down = MakeDeviceIf<GpioButton>(BoardHasGpio(HAL_BTN_DOWN), HAL_BTN_DOWN);
-        }
-        if (!_button_ok) {
-            _button_ok = MakeDeviceIf<GpioButton>(BoardHasGpio(HAL_BTN_OK), HAL_BTN_OK);
-        }
+    void InitializeI2c() {
+        i2c_master_bus_config_t bus_config = {};
+        bus_config.i2c_port = I2C_NUM_0;
+        bus_config.scl_io_num = static_cast<gpio_num_t>(HAL_I2C_SCL);
+        bus_config.sda_io_num = static_cast<gpio_num_t>(HAL_I2C_SDA);
+        bus_config.clk_source = I2C_CLK_SRC_DEFAULT;
+        bus_config.glitch_ignore_cnt = 7;
+        bus_config.flags.enable_internal_pullup = true;
+        _i2c_ready = i2c_new_master_bus(&bus_config, &_i2c_bus) == ESP_OK;
+    }
 
-        _button_up_ready = InitializeOwnedDevice(_button_up, kTag, "button up");
-        _button_down_ready = InitializeOwnedDevice(_button_down, kTag, "button down");
-        _button_ok_ready = InitializeOwnedDevice(_button_ok, kTag, "button ok");
+    void InitializeButtons() {
+        _button_ok = std::make_unique<GpioButton>(static_cast<gpio_num_t>(HAL_BTN_OK));
+        _button_ok_ready = _button_ok->Initialize() == ESP_OK;
     }
 
     void InitializeLed() {
-        if (!_led) {
-            _led = MakeDeviceIf<GpioLed>(BoardHasGpio(HAL_LED_STATUS), HAL_LED_STATUS);
-        }
-        _led_ready = InitializeOwnedDevice(_led, kTag, "status led");
-    }
-
-    void InitializeBuzzer() {
-        if (!_buzzer) {
-            _buzzer = MakeDeviceIf<GpioBuzzer>(BoardHasGpio(HAL_BUZZER), HAL_BUZZER);
-        }
-        _buzzer_ready = InitializeOwnedDevice(_buzzer, kTag, "buzzer");
+        _led = std::make_unique<GpioLed>(static_cast<gpio_num_t>(HAL_LED_STATUS));
+        _led_ready = _led->Initialize() == ESP_OK;
     }
 
     void InitializeBattery() {
-        if (!_battery) {
-            _battery = std::make_unique<AdcBattery>(HAL_BATTERY_ADC_UNIT, HAL_BATTERY_ADC_CHANNEL, HAL_BATTERY_CHARGE_DETECT);
-        }
-        _battery_ready = InitializeOwnedDevice(_battery, kTag, "battery");
+        _battery = std::make_unique<AdcBattery>(HAL_BATTERY_ADC_UNIT,
+                                                HAL_BATTERY_ADC_CHANNEL,
+                                                static_cast<gpio_num_t>(HAL_BATTERY_CHARGE_DETECT));
+        _battery_ready = _battery->Initialize() == ESP_OK;
     }
 
     void InitializeDisplay() {
-        const bool has_display = BoardHasGpio(HAL_EPD_SCK) && BoardHasGpio(HAL_EPD_MOSI) &&
-                                 BoardHasGpio(HAL_EPD_CS) && BoardHasGpio(HAL_EPD_DC) &&
-                                 BoardHasGpio(HAL_EPD_RST) && BoardHasGpio(HAL_EPD_BUSY);
-        if (!_display) {
-            _display = MakeDeviceIf<GpioDisplay>(has_display, HAL_EPD_SCK, HAL_EPD_MOSI, HAL_EPD_CS, HAL_EPD_DC, HAL_EPD_RST, HAL_EPD_BUSY);
-        }
-        _display_ready = InitializeOwnedDevice(_display, kTag, "display");
+        _display = std::make_unique<GpioDisplay>(static_cast<gpio_num_t>(HAL_EPD_SCK),
+                                                 static_cast<gpio_num_t>(HAL_EPD_MOSI),
+                                                 static_cast<gpio_num_t>(HAL_EPD_CS),
+                                                 static_cast<gpio_num_t>(HAL_EPD_DC),
+                                                 static_cast<gpio_num_t>(HAL_EPD_RST),
+                                                 static_cast<gpio_num_t>(HAL_EPD_BUSY));
+        _display_ready = _display->Initialize() == ESP_OK;
     }
 
-    void InitializeSensors() {
-        // Board-specific chip implementations belong in board/new_board/devices.
-        _environment_sensor_ready = _environment_sensor != nullptr;
-        _imu_ready = _imu != nullptr;
-        _rtc_ready = _rtc != nullptr;
-        _storage_ready = _storage != nullptr;
-        _microphone_ready = _microphone != nullptr;
-        _touch_ready = _touch != nullptr;
-    }
-
-    std::unique_ptr<Button> _button_up;
-    std::unique_ptr<Button> _button_down;
     std::unique_ptr<Button> _button_ok;
     std::unique_ptr<Led> _led;
-    std::unique_ptr<Buzzer> _buzzer;
     std::unique_ptr<Battery> _battery;
     std::unique_ptr<Display> _display;
-    std::unique_ptr<EnvironmentSensor> _environment_sensor;
-    std::unique_ptr<Imu> _imu;
-    std::unique_ptr<Rtc> _rtc;
-    std::unique_ptr<Storage> _storage;
-    std::unique_ptr<Microphone> _microphone;
-    std::unique_ptr<Touch> _touch;
+    i2c_master_bus_handle_t _i2c_bus = nullptr;
 
-    bool _button_up_ready = false;
-    bool _button_down_ready = false;
+    bool _i2c_ready = false;
     bool _button_ok_ready = false;
     bool _led_ready = false;
-    bool _buzzer_ready = false;
     bool _battery_ready = false;
     bool _display_ready = false;
-    bool _environment_sensor_ready = false;
-    bool _imu_ready = false;
-    bool _rtc_ready = false;
-    bool _storage_ready = false;
-    bool _microphone_ready = false;
-    bool _touch_ready = false;
 };
 
 DECLARE_BOARD(NewBoard);
